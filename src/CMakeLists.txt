@@ -40,7 +40,9 @@ set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 
 find_package(PCL 1.8 REQUIRED COMPONENTS common io)
 include_directories(${PCL_INCLUDE_DIRS} ../cloudcompare/CC/include ../cloudcompare/libs/qCC_db)
-link_directories({${PCL_DEFINITIONS} ../cloudcompare/build/CC)
+
+set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+link_directories(/usr/lib/cloudcompare)
 
 add_executable(regply regply.cpp ../cloudcompare/CC/src/BoundingBox.cpp ../cloudcompare/CC/src/ScalarField.cpp)
 
