@@ -1,0 +1,6 @@
+#define regply_VERSION_MAJOR @regply_VERSION_MAJOR@
+#define regply_VERSION_MINOR @regply_VERSION_MINOR@
+#define regply_VERSION_PATCH @regply_VERSION_PATCH@
+#define regply_GIT_BRANCH @regply_GIT_BRANCH@
+#define regply_GIT_COMMIT @regply_GIT_COMMIT@
+

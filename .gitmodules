@@ -1,0 +1,3 @@
+[submodule "cloudcompare"]
+	path = cloudcompare
+	url = https://github.com/cloudcompare/cloudcompare
