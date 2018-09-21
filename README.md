@@ -25,9 +25,11 @@ sudo apt-get install libpcl-dev libboost-dev libproj-dev
 
 If CloudCompare is not yet installed on your system, build and install it, for example running the following commands in the base directory:
 ```
+git submodule init
+git submodule update
 cd cloudcompare
 mkdir build
-cmake .. -DCMAKE_BUILD_TYPE=Release
+cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr
 make && sudo checkinstall --pkgname cloudcompare
 ```
 
