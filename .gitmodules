@@ -1,3 +1,6 @@
 [submodule "cloudcompare"]
 	path = cloudcompare
 	url = https://github.com/cloudcompare/cloudcompare
+[submodule "src/tinyply"]
+	path = src/tinyply
+	url = https://github.com/ddiakopoulos/tinyply
