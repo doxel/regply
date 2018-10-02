@@ -1,6 +1,8 @@
 cmake_minimum_required (VERSION 2.6)
 project (regply)
 
+add_subdirectory(tinyply)
+
 # Get the current working branch
 execute_process(
   COMMAND git rev-parse --abbrev-ref HEAD
@@ -29,6 +31,7 @@ configure_file (
   )
 
 include_directories("${PROJECT_BINARY_DIR}")
+include_directories("${PROJECT_SOURCE_DIR}/tinyply/source")
 
 if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
@@ -44,9 +47,9 @@ include_directories(${PCL_INCLUDE_DIRS} ../cloudcompare/CC/include ../cloudcompa
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 link_directories(/usr/lib/cloudcompare)
 
-add_executable(regply regply.cpp ../cloudcompare/CC/src/BoundingBox.cpp ../cloudcompare/CC/src/ScalarField.cpp)
+add_executable(regply regply.cpp ply_io.cpp ../cloudcompare/CC/src/BoundingBox.cpp ../cloudcompare/CC/src/ScalarField.cpp)
 
 # ${PCL_COMMON_LIBRARIES} ${PCL_IO_LIBRARIES} adds too much unused symbols
-target_link_libraries(regply pcl_common pcl_io boost_system CC_CORE_LIB)
+target_link_libraries(regply tinyply CC_CORE_LIB)
 
 install(TARGETS regply DESTINATION /usr/bin)

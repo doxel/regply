@@ -20,14 +20,6 @@
 *
 */
 
-#include "PointCloud.h"
-#include "PointProjectionTools.h"
-#include "ScalarFieldTools.h"
-#include "RegistrationTools.h"
-#include <pcl/io/ply_io.h>
-#include <pcl/point_types.h>
-#include <pcl/common/transformation_from_correspondences.h>
-#include <pcl/common/transforms.h>
 
 #include <Eigen/Geometry>
 
@@ -40,9 +32,18 @@
 #include <stdlib.h>
 #include <getopt.h>
 
+#include "PointCloud.h"
+#include "PointProjectionTools.h"
+#include "ScalarFieldTools.h"
+#include "RegistrationTools.h"
+#include "tinyply.h"
+#include "ply_io.h"
 #include "regply.h"
 
 using namespace CCLib;
+
+struct float3 { float x, y, z; };
+struct double3 { double x, y, z; };
 
 int registration(char *ref_filename, char *cor_filename, char *align_filename, char *out_filename, bool fixedScale);
 
@@ -144,27 +145,61 @@ int main(int argc, char **argv) {
   return registration(reference,correspondences,transform,output,fixedScale);
 }
 
+template<class T, class U>
+void fillCloud(PointCloud &P, PointCloud &X, T cor, U ref, size_t count) {
+   for (size_t i = 0; i < count; ++i) {
+     P.addPoint(CCVector3(cor[i].x, cor[i].y, cor[i].z));
+     X.addPoint(CCVector3(ref[i].x, ref[i].y, ref[i].z));
+   }
+}
+
 int registration(char *ref_filename, char *cor_filename, char *align_filename, char *out_filename, bool fixedScale) {
 
+/*
   pcl::PointCloud<pcl::PointXYZ>::Ptr cloud (new pcl::PointCloud<pcl::PointXYZ>);
   pcl::PointCloud<pcl::PointXYZ>::Ptr refCloud (new pcl::PointCloud<pcl::PointXYZ>);
   pcl::PLYReader Reader;
   Reader.read(ref_filename, *refCloud);
   Reader.read(cor_filename, *cloud);
+*/
+  tinyply::PlyFile ref_file;
+  tinyply::PlyFile cor_file;
+
+  std::vector<RequestedProperties> ref_requestList;
+  std::shared_ptr<tinyply::PlyData> ref_vertices;
+  ref_requestList.push_back(RequestedProperties(&ref_vertices,"vertex",{"x","y","z"}));
+
+  std::vector<RequestedProperties> cor_requestList;
+  std::shared_ptr<tinyply::PlyData> cor_vertices;
+  cor_requestList.push_back(RequestedProperties(&cor_vertices,"vertex",{"x","y","z"}));
+
+  ply_open(ref_filename,ref_file,ref_requestList,true,true);
+  ply_open(cor_filename,cor_file,cor_requestList,true,true);
+
   PointCloud P,X;
   PointProjectionTools::Transformation trans;
   Eigen::Affine3f eigen_trans;
 
-  pcl::TransformationFromCorrespondences pcl_transformation_from_correspondences;
-
-  if (cloud->points.size()!=refCloud->points.size()) {
+  if (ref_vertices->count!=cor_vertices->count) {
     std::cerr << "number of points must be equal in both files" << std::endl;
     return false;
   }
 
-  for (size_t i = 0; i < cloud->points.size(); ++i) {
-    P.addPoint(CCVector3(cloud->points[i].x, cloud->points[i].y, cloud->points[i].z));
-    X.addPoint(CCVector3(refCloud->points[i].x, refCloud->points[i].y, refCloud->points[i].z));
+  void *ref_points_buf=ref_vertices->buffer.get();
+  void *cor_points_buf=cor_vertices->buffer.get();
+
+  if (ref_vertices->t==tinyply::Type::FLOAT32) {
+    if (cor_vertices->t==tinyply::Type::FLOAT32) {
+      fillCloud(P, X, (float3*)cor_points_buf, (float3*)ref_points_buf, ref_vertices->count);
+    } else {
+      fillCloud(P, X, (double3*)cor_points_buf, (float3*)ref_points_buf, ref_vertices->count);
+    }
+  } else {
+    if (cor_vertices->t==tinyply::Type::FLOAT32) {
+      fillCloud(P, X, (float3*)cor_points_buf, (double3*)ref_points_buf, ref_vertices->count);
+    } else {
+      fillCloud(P, X, (double3*)cor_points_buf, (double3*)ref_points_buf, ref_vertices->count);
+    }
   }
 
   if (HornRegistrationTools::FindAbsoluteOrientation((GenericCloud*)&P,(GenericCloud*)&X,trans,fixedScale)) {
@@ -186,7 +221,7 @@ int registration(char *ref_filename, char *cor_filename, char *align_filename, c
     std::cerr << "Registration failed !" << std::endl;
     exit (1);
   }
-
+/*
   eigen_trans(0,0)=trans.R.getValue(0,0)*trans.s;
   eigen_trans(0,1)=trans.R.getValue(0,1)*trans.s;
   eigen_trans(0,2)=trans.R.getValue(0,2)*trans.s;
@@ -222,7 +257,7 @@ int registration(char *ref_filename, char *cor_filename, char *align_filename, c
       << std::endl;
     }
   }
-
+*/
   return 0;
 
 }
