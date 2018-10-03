@@ -153,6 +153,9 @@ void fillCloud(PointCloud &P, PointCloud &X, T cor, U ref, size_t count) {
    }
 }
 
+std::shared_ptr<tinyply::PlyData> ref_vertices=0;
+std::shared_ptr<tinyply::PlyData> cor_vertices=0;
+
 int registration(char *ref_filename, char *cor_filename, char *align_filename, char *out_filename, bool fixedScale) {
 
 /*
@@ -166,11 +169,9 @@ int registration(char *ref_filename, char *cor_filename, char *align_filename, c
   tinyply::PlyFile cor_file;
 
   std::vector<RequestedProperties> ref_requestList;
-  std::shared_ptr<tinyply::PlyData> ref_vertices;
   ref_requestList.push_back(RequestedProperties(&ref_vertices,"vertex",{"x","y","z"}));
 
   std::vector<RequestedProperties> cor_requestList;
-  std::shared_ptr<tinyply::PlyData> cor_vertices;
   cor_requestList.push_back(RequestedProperties(&cor_vertices,"vertex",{"x","y","z"}));
 
   ply_open(ref_filename,ref_file,ref_requestList,true,true);
@@ -210,7 +211,7 @@ int registration(char *ref_filename, char *cor_filename, char *align_filename, c
     std::cout << "-------------------" << std::endl;
     std::cout << "Transformation matrix" << std::endl;
 
-    std::cout << trans.R.getValue(0,0)*trans.s << " " << trans.R.getValue(0,1)*trans.s << " " << trans.R.getValue(0,2)*trans.s << " " /*<< trans.R.getValue(0,3)*trans.s << " " */ << trans.T.x << std::endl;
+    std::cout << std::fixed << trans.R.getValue(0,0)*trans.s << " " << trans.R.getValue(0,1)*trans.s << " " << trans.R.getValue(0,2)*trans.s << " " /*<< trans.R.getValue(0,3)*trans.s << " " */ << trans.T.x << std::endl;
     std::cout << trans.R.getValue(1,0)*trans.s << " " << trans.R.getValue(1,1)*trans.s << " " << trans.R.getValue(1,2)*trans.s << " " /* << trans.R.getValue(1,3)*trans.s << " " */ << trans.T.y << std::endl;
     std::cout << trans.R.getValue(2,0)*trans.s << " " << trans.R.getValue(2,1)*trans.s << " " << trans.R.getValue(2,2)*trans.s << " " /* << trans.R.getValue(2,3)*trans.s << " " */ << trans.T.z << std::endl;
     std::cout << "0.0 0.0 0.0 1.0" << std::endl;

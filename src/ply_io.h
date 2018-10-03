@@ -29,11 +29,12 @@
 
 class RequestedProperties {
 public:
+  size_t remaining;
   std::string elementName;
   std::shared_ptr<tinyply::PlyData> *tinyPlyDataPtr;
-  std::initializer_list<std::string>_properties;
+  std::initializer_list<std::string> properties_list;
   std::vector<std::pair<std::string, bool> > properties;
-  RequestedProperties(std::shared_ptr<tinyply::PlyData> *tinyPlyDataPtr, std::string elementName, std::initializer_list<std::string>_properties);
+  RequestedProperties(std::shared_ptr<tinyply::PlyData> *tinyPlyDataPtr, std::string elementName, std::initializer_list<std::string>properties_list);
 };
 
 

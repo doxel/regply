@@ -28,21 +28,22 @@
 #include "tinyply.h"
 #include "ply_io.h"
 
-RequestedProperties::RequestedProperties(std::shared_ptr<tinyply::PlyData> *_tinyPlyDataPtr, std::string _elementName, std::initializer_list<std::string>__properties) {
-  tinyPlyDataPtr=_tinyPlyDataPtr;
-  elementName=_elementName;
-  _properties=__properties;
-  for (auto prop : _properties) {
-    properties.push_back(std::pair<std::string,bool>(prop,false));
+RequestedProperties::RequestedProperties(std::shared_ptr<tinyply::PlyData> *tinyPlyDataPtr, std::string elementName, std::initializer_list<std::string>properties_list) {
+  this->tinyPlyDataPtr=tinyPlyDataPtr;
+  this->elementName=elementName;
+  this->properties_list=properties_list;
+  this->remaining=properties_list.size();
+  for (auto prop : properties_list) {
+    this->properties.push_back(std::pair<std::string,bool>(prop,false));
   }
 }
 
 int ply_open(
   const char *filename,
   tinyply::PlyFile &file, // output file
-  std::vector<RequestedProperties> &requestedPropertiesList,
+  std::vector<RequestedProperties> requestedPropertiesList,
   bool requestOtherProperties,   // needed if output file is the input file
-  bool verbose=false
+  bool verbose
 ) {
 
   int total=0;
@@ -57,35 +58,44 @@ int ply_open(
     for (auto p : e.properties) {
       bool found=false;
       if (verbose) std::cerr << "\tproperty - " << p.name << " (" << tinyply::PropertyTable[p.propertyType].str << ")" << std::endl;
-      for(auto req : requestedPropertiesList) {
-        if (req.tinyPlyDataPtr[0]->count) continue;
+      for(size_t reqi=0; reqi<requestedPropertiesList.size(); ++reqi) {
+        RequestedProperties &req=requestedPropertiesList[reqi];
+        if (*req.tinyPlyDataPtr) continue;
         if (e.name==std::string(req.elementName)) {
-          size_t count=0;
-          for (std::pair<std::string, bool> prop: req.properties) {
+          for (size_t propi=0; propi<req.properties.size(); ++propi) {
+            std::pair<std::string, bool> &prop=req.properties[propi];
             if (p.name==std::string(prop.first)) {
+              if (prop.second) throw std::runtime_error(std::string("property defined twice ") + prop.first);
               prop.second=true;
               found=true;
+              --req.remaining;
+              break;
             }
-            if (prop.second) ++count;
           }
-          if (count==req.properties.size()) {
-            if (true /*verbose*/) {
-              std::cerr << "extracted ";
-              int i=req._properties.size();
-              for (auto name : req._properties) {
+          if (!req.remaining) {
+            if (verbose) {
+              std::cerr << "found ";
+              int i=req.properties_list.size();
+              for (auto name : req.properties_list) {
                 std::cerr << name << ((--i)?", ":"");
               }
+              std::cerr << std::endl;
             }
-            *req.tinyPlyDataPtr=file.request_properties_from_element(e.name.c_str(), req._properties);
+            *req.tinyPlyDataPtr=file.request_properties_from_element(e.name.c_str(), req.properties_list);
             ++total;
           }
           if (found) break;
         }
       }
       if (found) continue;
-      (void)file.request_properties_from_element(e.name.c_str(), { p.name.c_str() });
+      if (requestOtherProperties) {
+        (void)file.request_properties_from_element(e.name.c_str(), { p.name.c_str() });
+      }
     }
   }
+
+  if (verbose) std::cerr << "Reading ply..." << std::endl;
+  file.read(ss);
 
   return total;
 
