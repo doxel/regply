@@ -38,12 +38,22 @@ RequestedProperties::RequestedProperties(std::shared_ptr<tinyply::PlyData> *tiny
   }
 }
 
-int ply_open(
+int ply_read(
   const char *filename,
   tinyply::PlyFile &file, // output file
   std::vector<RequestedProperties> requestedPropertiesList,
-  bool requestOtherProperties,   // needed if output file is the input file
-  bool verbose
+  int verbose
+) {
+  std::vector<std::shared_ptr<tinyply::PlyData>> other_properties;
+  return ply_read(filename, file, requestedPropertiesList, other_properties, verbose);
+}
+
+int ply_read(
+  const char *filename,
+  tinyply::PlyFile &file, // output file
+  std::vector<RequestedProperties> requestedPropertiesList,
+  std::vector<std::shared_ptr<tinyply::PlyData>> &other_properties,
+  int verbose
 ) {
 
   int total=0;
@@ -53,17 +63,15 @@ int ply_open(
 
   file.parse_header(ss);
 
-  for (auto e : file.get_elements()) {
+  for (auto const &e : file.get_elements()) {
     if (verbose) std::cerr << "element - " << e.name << " (" << e.size << ")" << std::endl;
     for (auto p : e.properties) {
       bool found=false;
       if (verbose) std::cerr << "\tproperty - " << p.name << " (" << tinyply::PropertyTable[p.propertyType].str << ")" << std::endl;
-      for(size_t reqi=0; reqi<requestedPropertiesList.size(); ++reqi) {
-        RequestedProperties &req=requestedPropertiesList[reqi];
+      for(auto &req : requestedPropertiesList) {
         if (*req.tinyPlyDataPtr) continue;
         if (e.name==std::string(req.elementName)) {
-          for (size_t propi=0; propi<req.properties.size(); ++propi) {
-            std::pair<std::string, bool> &prop=req.properties[propi];
+          for (auto &prop : req.properties) {
             if (p.name==std::string(prop.first)) {
               if (prop.second) throw std::runtime_error(std::string("property defined twice ") + prop.first);
               prop.second=true;
@@ -76,7 +84,7 @@ int ply_open(
             if (verbose) {
               std::cerr << "found ";
               int i=req.properties_list.size();
-              for (auto name : req.properties_list) {
+              for (auto const &name : req.properties_list) {
                 std::cerr << name << ((--i)?", ":"");
               }
               std::cerr << std::endl;
@@ -87,9 +95,8 @@ int ply_open(
           if (found) break;
         }
       }
-      if (found) continue;
-      if (requestOtherProperties) {
-        (void)file.request_properties_from_element(e.name.c_str(), { p.name.c_str() });
+      if (!found) {
+        other_properties.push_back(file.request_properties_from_element(e.name.c_str(), { p.name.c_str() }));
       }
     }
   }

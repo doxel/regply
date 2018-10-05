@@ -39,19 +39,26 @@ public:
 
 
 /**
-  open a ply file using tinyply and request properties from elements
+  read a ply file using tinyply
   @param filename the ply file name
   @param requestedProperties what to extract and where to store the pointers
   @param requestOtherProperties needed if output file is the input file
   @param verbose
   @return status
 */
-int ply_open(
+int ply_read(
   const char *filename,
   tinyply::PlyFile &file, // output file
   std::vector<RequestedProperties> requestedPropertiesList,
-  bool requestOtherProperties,   // needed if output file is the input file
-  bool verbose=false
+  std::vector<std::shared_ptr<tinyply::PlyData>> &other_properties,
+  int verbose=0
+);
+
+int ply_read(
+  const char *filename,
+  tinyply::PlyFile &file, // output file
+  std::vector<RequestedProperties> requestedPropertiesList,
+  int verbose=0
 );
 
 #endif

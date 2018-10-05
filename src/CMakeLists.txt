@@ -20,8 +20,8 @@ execute_process(
   )
 
 set (regply_VERSION_MAJOR 1)
-set (regply_VERSION_MINOR 0)
-set (regply_VERSION_PATCH 1)
+set (regply_VERSION_MINOR 1)
+set (regply_VERSION_PATCH 0)
 set (regply_GIT_BRANCH "\"${GIT_BRANCH}\"")
 set (regply_GIT_COMMIT "\"${GIT_COMMIT}\"")
 
