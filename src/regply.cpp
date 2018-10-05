@@ -169,6 +169,17 @@ void fillCloud(PointCloud &P, PointCloud &X, T cor, U ref, size_t count) {
    }
 }
 
+void streamTrans(std::ostream &stream, PointProjectionTools::Transformation &trans, double rms) {
+  // print the transformation matrix
+  stream << "# Final RMS: " << rms << std::endl;
+  if (!fixedScale) stream << "# Scale: " << trans.s  << " (already integrated in matrix below) " << std::endl;
+  stream << std::fixed;
+  stream << trans.R.getValue(0,0)*trans.s << ", " << trans.R.getValue(0,1)*trans.s << ", " << trans.R.getValue(0,2)*trans.s << ", " << trans.T.x << std::endl;
+  stream << trans.R.getValue(1,0)*trans.s << ", " << trans.R.getValue(1,1)*trans.s << ", " << trans.R.getValue(1,2)*trans.s << ", " << trans.T.y << std::endl;
+  stream << trans.R.getValue(2,0)*trans.s << ", " << trans.R.getValue(2,1)*trans.s << ", " << trans.R.getValue(2,2)*trans.s << ", " << trans.T.z << std::endl;
+  stream << 0.0 << ", " << 0.0 << ", " << 0.0 << ", " << 1.0 << std::endl;
+}
+
 int registration(char *ref_filename, char *cor_filename, char *align_filename, char *out_filename, bool fixedScale) {
 
   tinyply::PlyFile ref_file;
@@ -292,20 +303,17 @@ int registration(char *ref_filename, char *cor_filename, char *align_filename, c
   }
 
   if (!align_filename) {
-    if (verbose) std::cerr << "-------------------" << std::endl;
+    if (out_filename) {
+      // save to specified output file
+      std::filebuf fb_ascii;
+      fb_ascii.open(out_filename, std::ios::out);
+      std::ostream outstream_ascii(&fb_ascii);
+      if (outstream_ascii.fail()) throw std::runtime_error(std::string("failed to open ") + out_filename + " for writing");
+      streamTrans(outstream_ascii,trans,rms);
 
-    // print the transformation matrix
-    std::cerr << "# Final RMS: " << rms << std::endl;
-    if (!fixedScale) std::cerr << "# Scale: " << trans.s  << " (already integrated in matrix below) " << std::endl;
-
-    if (verbose) std::cerr << "# Transformation matrix:" << std::endl;
-
-    std::cout << std::fixed;
-    std::cout << trans.R.getValue(0,0)*trans.s << ", " << trans.R.getValue(0,1)*trans.s << ", " << trans.R.getValue(0,2)*trans.s << ", " << trans.T.x << std::endl;
-    std::cout << trans.R.getValue(1,0)*trans.s << ", " << trans.R.getValue(1,1)*trans.s << ", " << trans.R.getValue(1,2)*trans.s << ", " << trans.T.y << std::endl;
-    std::cout << trans.R.getValue(2,0)*trans.s << ", " << trans.R.getValue(2,1)*trans.s << ", " << trans.R.getValue(2,2)*trans.s << ", " << trans.T.z << std::endl;
-    std::cout << 0.0 << ", " << 0.0 << ", " << 0.0 << ", " << 1.0 << std::endl;
-    if (verbose) std::cerr << "-------------------" << std::endl;
+    } else {
+      streamTrans(std::cout,trans,rms);
+    }
 
   }
 
