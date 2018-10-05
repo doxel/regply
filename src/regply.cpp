@@ -239,14 +239,14 @@ int registration(char *ref_filename, char *cor_filename, char *align_filename, c
     eigen_trans(0,0)=static_cast<double>(trans.R.getValue(0,1))*static_cast<double>(trans.s);
     eigen_trans(0,0)=static_cast<double>(trans.R.getValue(0,2))*static_cast<double>(trans.s);
     eigen_trans(0,3)=static_cast<double>(trans.T.x);
-    eigen_trans(0,0)=static_cast<double>(trans.R.getValue(1,0))*static_cast<double>(trans.s);
-    eigen_trans(0,0)=static_cast<double>(trans.R.getValue(1,1))*static_cast<double>(trans.s);
-    eigen_trans(0,0)=static_cast<double>(trans.R.getValue(1,2))*static_cast<double>(trans.s);
-    eigen_trans(0,3)=static_cast<double>(trans.T.y);
-    eigen_trans(0,0)=static_cast<double>(trans.R.getValue(2,0))*static_cast<double>(trans.s);
-    eigen_trans(0,0)=static_cast<double>(trans.R.getValue(2,1))*static_cast<double>(trans.s);
-    eigen_trans(0,0)=static_cast<double>(trans.R.getValue(2,2))*static_cast<double>(trans.s);
-    eigen_trans(0,3)=static_cast<double>(trans.T.z);
+    eigen_trans(1,0)=static_cast<double>(trans.R.getValue(1,0))*static_cast<double>(trans.s);
+    eigen_trans(1,0)=static_cast<double>(trans.R.getValue(1,1))*static_cast<double>(trans.s);
+    eigen_trans(1,0)=static_cast<double>(trans.R.getValue(1,2))*static_cast<double>(trans.s);
+    eigen_trans(1,3)=static_cast<double>(trans.T.y);
+    eigen_trans(2,0)=static_cast<double>(trans.R.getValue(2,0))*static_cast<double>(trans.s);
+    eigen_trans(2,0)=static_cast<double>(trans.R.getValue(2,1))*static_cast<double>(trans.s);
+    eigen_trans(2,0)=static_cast<double>(trans.R.getValue(2,2))*static_cast<double>(trans.s);
+    eigen_trans(2,3)=static_cast<double>(trans.T.z);
 
     std::shared_ptr<tinyply::PlyData> align_vertices=0;
     std::vector<RequestedProperties> align_requestList;
