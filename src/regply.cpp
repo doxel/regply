@@ -27,6 +27,7 @@
 #include <proj_api.h>
 #include <algorithm>
 #include <math.h>
+#include <typeinfo>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -47,9 +48,10 @@ using namespace CCLib;
 struct float3 { float x, y, z; };
 struct double3 { double x, y, z; };
 
-int registration(char *ref_filename, char *cor_filename, char *align_filename, char *out_filename, bool fixedScale);
+int registration(char *ref_filename, char *cor_filename, char *align_filename, char *out_filename, bool fixedScale, bool shift);
 
 static int fixedScale;
+static int shiftCoordinates;
 static int verbose;
 char *ref_filename;
 char *cor_filename;
@@ -71,6 +73,7 @@ void usage() {
   std::cerr << "  -r|reference <filename>         reference points" << std::endl;
   std::cerr << "  -c|correspondences <filename>   control points to be aligned" << std::endl;
   std::cerr << "  -f|fixed-scale                  do not adjust scale" << std::endl;
+  std::cerr << "  -s|shift                        shift coordinates" << std::endl;
   std::cerr << "  -a|align <filename>             optional: cloud to be aligned using resulting matrix" << std::endl;
   std::cerr << "  -o|output <filename>            optional: output file name" << std::endl;
   std::cerr << "  -v|verbose" << std::endl;
@@ -84,6 +87,7 @@ int main(int argc, char **argv) {
   while(1) {
     static struct option long_options[] = {
       {"fixed-scale", no_argument, &fixedScale, 1},
+      {"shift", no_argument, &shiftCoordinates, 1},
       {"verbose", no_argument, &verbose, 1},
       {"reference", required_argument, 0, 'r'},
       {"correspondences", required_argument, 0, 'c'},
@@ -95,7 +99,7 @@ int main(int argc, char **argv) {
 
     int option_index = 0;
 
-    c = getopt_long (argc, argv, "fr:c:a:o:hv", long_options, &option_index);
+    c = getopt_long (argc, argv, "fr:c:a:o:hvs", long_options, &option_index);
 
     if (c == -1)
       break;
@@ -119,6 +123,10 @@ int main(int argc, char **argv) {
 
       case 'f':
         fixedScale=1;
+        break;
+
+      case 's':
+        shiftCoordinates=1;
         break;
 
       case 'v':
@@ -153,12 +161,35 @@ int main(int argc, char **argv) {
     }
 
   try {
-    return registration(ref_filename,cor_filename,align_filename,out_filename,fixedScale);
-  } catch(std::runtime_error e) {
+    return registration(ref_filename,cor_filename,align_filename,out_filename,fixedScale,shiftCoordinates);
+  } catch(const std::exception& e) {
     std::cerr << "error: " << e.what() << std::endl;
     return 1;
   }
+}
 
+template<class T>
+void getIdealShift(T *points, size_t count, T *shift) {
+  if (!count) {
+    shift->x=shift->y=shift->z=0;
+    return;
+  }
+
+  typeof(points->x) minx,miny,minz;
+  minx=std::numeric_limits<typeof(points->x)>::max();
+  miny=std::numeric_limits<typeof(points->x)>::max();
+  minz=std::numeric_limits<typeof(points->x)>::max();
+
+  for (size_t i = 0; i < count; ++i) {
+    T *point=points+i;
+    minx=std::min(minx,point->x);
+    miny=std::min(miny,point->y);
+    minz=std::min(minz,point->z);
+   }
+
+   shift->x=static_cast<long int>(minx/100)*100.0;
+   shift->y=static_cast<long int>(miny/100)*100.0;
+   shift->z=static_cast<long int>(minz/100)*100.0;
 }
 
 template<class T, class U>
@@ -166,6 +197,14 @@ void fillCloud(PointCloud &P, PointCloud &X, T cor, U ref, size_t count) {
    for (size_t i = 0; i < count; ++i) {
      P.addPoint(CCVector3(cor[i].x, cor[i].y, cor[i].z));
      X.addPoint(CCVector3(ref[i].x, ref[i].y, ref[i].z));
+   }
+}
+
+template<class T, class U>
+void fillCloud(PointCloud &P, PointCloud &X, T cor, U ref, size_t count, T cor_offset, U ref_offset) {
+   for (size_t i = 0; i < count; ++i) {
+     P.addPoint(CCVector3(cor[i].x-cor_offset->x, cor[i].y-cor_offset->y, cor[i].z-cor_offset->z));
+     X.addPoint(CCVector3(ref[i].x-ref_offset->x, ref[i].y-ref_offset->y, ref[i].z-ref_offset->z));
    }
 }
 
@@ -180,7 +219,71 @@ void streamTrans(std::ostream &stream, PointProjectionTools::Transformation &tra
   stream << 0.0 << ", " << 0.0 << ", " << 0.0 << ", " << 1.0 << std::endl;
 }
 
-int registration(char *ref_filename, char *cor_filename, char *align_filename, char *out_filename, bool fixedScale) {
+template<class T, class U, class V>
+void apply_matrix(T points, size_t count, Eigen::Affine3d eigen_trans, U cor_offset, V ref_offset) {
+  Eigen::Vector4d v(0,0,0,1);
+
+  double cox=cor_offset->x;
+  double coy=cor_offset->y;
+  double coz=cor_offset->z;
+  double rox=ref_offset->x;
+  double roy=ref_offset->y;
+  double roz=ref_offset->z;
+
+  if (typeid(points->x)==typeid(float)) {
+    for (size_t i=0; i<count; ++i) {
+      T p=points+i;
+      v(0)=static_cast<double>(p->x)-cox;
+      v(1)=static_cast<double>(p->y)-coy;
+      v(2)=static_cast<double>(p->z)-coz;
+      Eigen::Vector4d w=eigen_trans*v;
+      p->x=static_cast<float>(w(0)+rox);
+      p->y=static_cast<float>(w(1)+roy);
+      p->z=static_cast<float>(w(2)+roz);
+    }
+  } else {
+    for (size_t i=0; i<count; ++i) {
+      T p=points+i;
+      v(0)=p->x-cox;
+      v(1)=p->y-coy;
+      v(2)=p->z-coz;
+      Eigen::Vector4d w=eigen_trans*v;
+      p->x=w(0)+rox;
+      p->y=w(1)+roy;
+      p->z=w(2)+roz;
+    }
+  }
+}
+
+template<class T>
+void apply_matrix(T points, size_t count, Eigen::Affine3d eigen_trans) {
+  Eigen::Vector4d v(0,0,0,1);
+  if (typeid(points->x)==typeid(float)) {
+    for (size_t i=0; i<count; ++i) {
+      T p=points+i;
+      v(0)=static_cast<double>(p->x);
+      v(1)=static_cast<double>(p->y);
+      v(2)=static_cast<double>(p->z);
+      Eigen::Vector4d w=eigen_trans*v;
+      p->x=static_cast<float>(w(0));
+      p->y=static_cast<float>(w(1));
+      p->z=static_cast<float>(w(2));
+    }
+  } else {
+    for (size_t i=0; i<count; ++i) {
+      T p=points+i;
+      v(0)=p->x;
+      v(1)=p->y;
+      v(2)=p->z;
+      Eigen::Vector4d w=eigen_trans*v;
+      p->x=w(0);
+      p->y=w(1);
+      p->z=w(2);
+    }
+  }
+}
+
+int registration(char *ref_filename, char *cor_filename, char *align_filename, char *out_filename, bool fixedScale, bool shiftCoordinates) {
 
   tinyply::PlyFile ref_file;
   tinyply::PlyFile cor_file;
@@ -203,22 +306,51 @@ int registration(char *ref_filename, char *cor_filename, char *align_filename, c
     throw std::runtime_error(std::string("number of points must be equal in both files"));
   }
 
+  size_t count=ref_vertices->count;
+
   // fill CC pointclouds
   PointCloud P,X;
   void *ref_points_buf=ref_vertices->buffer.get();
   void *cor_points_buf=cor_vertices->buffer.get();
 
-  if (ref_vertices->t==tinyply::Type::FLOAT32) {
-    if (cor_vertices->t==tinyply::Type::FLOAT32) {
-      fillCloud(P, X, (float3*)cor_points_buf, (float3*)ref_points_buf, ref_vertices->count);
+  float3 ref_shift_f;
+  float3 cor_shift_f;
+  double3 ref_shift_d;
+  double3 cor_shift_d;
+
+  if (shiftCoordinates) {
+    if (ref_vertices->t==tinyply::Type::FLOAT32) {
+      getIdealShift((float3*)ref_points_buf, count, &ref_shift_f);
+      if (cor_vertices->t==tinyply::Type::FLOAT32) {
+        getIdealShift((float3*)cor_points_buf, count, &cor_shift_f);
+        fillCloud(P, X, (float3*)cor_points_buf, (float3*)ref_points_buf, count, &cor_shift_f, &ref_shift_f);
+      } else {
+        getIdealShift((double3*)cor_points_buf, count, &cor_shift_d);
+        fillCloud(P, X, (double3*)cor_points_buf, (float3*)ref_points_buf, count, &cor_shift_d, &ref_shift_f);
+      }
     } else {
-      fillCloud(P, X, (double3*)cor_points_buf, (float3*)ref_points_buf, ref_vertices->count);
+      getIdealShift((double3*)ref_points_buf, count, &ref_shift_d);
+      if (cor_vertices->t==tinyply::Type::FLOAT32) {
+        getIdealShift((float3*)cor_points_buf, count, &cor_shift_f);
+        fillCloud(P, X, (float3*)cor_points_buf, (double3*)ref_points_buf, count, &cor_shift_f, &ref_shift_d);
+      } else {
+        getIdealShift((double3*)cor_points_buf, count, &cor_shift_d);
+        fillCloud(P, X, (double3*)cor_points_buf, (double3*)ref_points_buf, count, &cor_shift_d, &ref_shift_d);
+      }
     }
   } else {
-    if (cor_vertices->t==tinyply::Type::FLOAT32) {
-      fillCloud(P, X, (float3*)cor_points_buf, (double3*)ref_points_buf, ref_vertices->count);
+    if (ref_vertices->t==tinyply::Type::FLOAT32) {
+      if (cor_vertices->t==tinyply::Type::FLOAT32) {
+        fillCloud(P, X, (float3*)cor_points_buf, (float3*)ref_points_buf, count);
+      } else {
+        fillCloud(P, X, (double3*)cor_points_buf, (float3*)ref_points_buf, count);
+      }
     } else {
-      fillCloud(P, X, (double3*)cor_points_buf, (double3*)ref_points_buf, ref_vertices->count);
+      if (cor_vertices->t==tinyply::Type::FLOAT32) {
+        fillCloud(P, X, (float3*)cor_points_buf, (double3*)ref_points_buf, count);
+      } else {
+        fillCloud(P, X, (double3*)cor_points_buf, (double3*)ref_points_buf, count);
+      }
     }
   }
 
@@ -261,27 +393,49 @@ int registration(char *ref_filename, char *cor_filename, char *align_filename, c
 
     void *points_buf=align_vertices->buffer.get();
     Eigen::Vector4d v(0,0,0,1);
-    if (align_vertices->t==tinyply::Type::FLOAT32) {
-      for (size_t i=0; i<align_vertices->count; ++i) {
-        float3* p=((float3*)points_buf)+i;
-        v(0)=static_cast<double>(p->x);
-        v(1)=static_cast<double>(p->y);
-        v(2)=static_cast<double>(p->z);
-        Eigen::Vector4d w=eigen_trans*v;
-        p->x=static_cast<float>(w(0));
-        p->y=static_cast<float>(w(1));
-        p->z=static_cast<float>(w(2));
+
+    if (shiftCoordinates) {
+      if (cor_vertices->t==tinyply::Type::FLOAT32) {
+        cor_shift_d.x=static_cast<double>(cor_shift_f.x);
+        cor_shift_d.y=static_cast<double>(cor_shift_f.y);
+        cor_shift_d.z=static_cast<double>(cor_shift_f.z);
+      }
+      if (ref_vertices->t==tinyply::Type::FLOAT32) {
+        ref_shift_d.x=static_cast<double>(ref_shift_f.x);
+        ref_shift_d.y=static_cast<double>(ref_shift_f.y);
+        ref_shift_d.z=static_cast<double>(ref_shift_f.z);
+      }
+
+      if (align_vertices->t==tinyply::Type::FLOAT32) {
+        apply_matrix(
+          (float3*)points_buf,
+          align_vertices->count,
+          eigen_trans,
+          &cor_shift_d,
+          &ref_shift_d
+        );
+      } else {
+        apply_matrix(
+          (double3*)points_buf,
+          align_vertices->count,
+          eigen_trans,
+          &cor_shift_d,
+          &ref_shift_d
+        );
       }
     } else {
-      for (size_t i=0; i<align_vertices->count; ++i) {
-        double3* p=((double3*)points_buf)+i;
-        v(0)=p->x;
-        v(1)=p->y;
-        v(2)=p->z;
-        Eigen::Vector4d w=eigen_trans*v;
-        p->x=w(0);
-        p->y=w(1);
-        p->z=w(2);
+      if (align_vertices->t==tinyply::Type::FLOAT32) {
+        apply_matrix(
+          (float3*)points_buf,
+          align_vertices->count,
+          eigen_trans
+        );
+      } else {
+        apply_matrix(
+          (double3*)points_buf,
+          align_vertices->count,
+          eigen_trans
+        );
       }
     }
 
@@ -312,6 +466,7 @@ int registration(char *ref_filename, char *cor_filename, char *align_filename, c
       streamTrans(outstream_ascii,trans,rms);
 
     } else {
+      // or print to stdout
       streamTrans(std::cout,trans,rms);
     }
 

@@ -41,8 +41,9 @@ set(CMAKE_CXX_FLAGS "-Wall -Wextra")
 set(CMAKE_CXX_FLAGS_DEBUG "-g")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 
-find_package(PCL 1.8 REQUIRED COMPONENTS common io)
-include_directories(${PCL_INCLUDE_DIRS} ../cloudcompare/CC/include ../cloudcompare/libs/qCC_db)
+#find_package(PCL 1.8 REQUIRED COMPONENTS common io)
+find_package(Eigen3 3.0 REQUIRED COMPONENTS Geometry)
+include_directories(${EIGEN3_INCLUDE_DIRS} ${PCL_INCLUDE_DIRS} ../cloudcompare/CC/include ../cloudcompare/libs/qCC_db)
 
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 link_directories(/usr/lib/cloudcompare)
