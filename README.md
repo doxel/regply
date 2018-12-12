@@ -8,17 +8,29 @@ Licensed under AGPLv3 or later, see Copyright section below.
 
 Align a ply file using the point-pairs specified in two other ply files.
 
+# Usage
+```
+Usage: regply <options>
+Options:
+  -r|reference <filename>         reference points
+  -c|correspondences <filename>   control points to be aligned
+  -f|fixed-scale                  do not adjust scale
+  -s|shift                        shift coordinates
+  -a|align <filename>             optional: cloud to be aligned using resulting matrix
+  -o|output <filename>            optional: output file name
+  -v|verbose
+```
+
 # Dependencies
 
 You need at least:
 
-* libpcl-1.8
 * libeigen3
 * libboost-system
 
 You can install the depencies for example with:
 ```
-sudo apt-get install libpcl-dev libboost-dev libproj-dev
+sudo apt-get install libboost-dev libproj-dev
 ```
 
 ## Build and Install
